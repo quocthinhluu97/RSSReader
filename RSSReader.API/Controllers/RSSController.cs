@@ -1,7 +1,9 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using AutoMapper;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using RSSReader.Data;
+using RSSReader.Shared;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -20,57 +22,49 @@ namespace RSSReader.API.Controllers
     {
         private readonly AppDbContext _appDbContext;
         private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly IMapper _mapper;
 
-        public RSSController(AppDbContext appDbContext, IHttpContextAccessor httpContextAccessor)
+        public RSSController(AppDbContext appDbContext, IHttpContextAccessor httpContextAccessor, IMapper mapper)
         {
             _appDbContext = appDbContext;
             _httpContextAccessor = httpContextAccessor;
+            _mapper = mapper;
         }
+
+        [Consumes("application/json")]
         [HttpGet]
-        [ResponseCache(Duration = 1200)]
-        public IActionResult Rss()
+        public IActionResult GetNewsFeed()
         {
-            var feed = new SyndicationFeed("Title", "Description", new Uri("https://tinhte.vn/rss"), "RSSUrl", DateTime.Now);
-            feed.Copyright = new TextSyndicationContent($"{DateTime.Now.Year} Quoc Thinh Luu");
-            var items = new List<SyndicationItem>();
-            var postings = _appDbContext.Posts.OrderByDescending(p => p.PubDate);
-
-            foreach (var item in postings)
+            try
             {
-                //string url = $"{GetBaseUrl()}";
-                var postUrl = Url.Action("Article", "Blog", new { id = item.Url }, HttpContext.Request.Scheme);
-                var title = item.Title;
-                var description = item.Description;
-                items.Add(new SyndicationItem(title, description, new Uri(postUrl), item.Url, item.PubDate));
-            }
+                string url = "https://tinhte.vn/rss";
+                var feed = new SyndicationFeed();
+                using (var reader = XmlReader.Create(url))
+                {
+                    feed = SyndicationFeed.Load(reader);
+                };
 
-            feed.Items = items;
-            var settings = new XmlWriterSettings
-            {
-                Encoding = Encoding.UTF8,
-                NewLineHandling = NewLineHandling.Entitize,
-                NewLineOnAttributes = true,
-                Indent = true
-            };
-
-            using (var stream = new MemoryStream())
-            {
-                using (var xmlWriter = XmlWriter.Create(stream, settings)) {
-                    var rssFormatter = new Rss20FeedFormatter(feed, false);
-                    rssFormatter.WriteTo(xmlWriter);
-                    xmlWriter.Flush();
+                var posts = new List<Post>();
+                foreach (var item in feed.Items)
+                {
+                    var post = _mapper.Map<Post>(item);
+                    //var post = new Post
+                    //{
+                    //    Title = item.Title.Text,
+                    //    Summary = item.Summary.Text,
+                    //    PublishDate = item.PublishDate.DateTime,
+                    //    Authors = new List<SyndicationPerson>(item.Authors),
+                    //    Links = new List<SyndicationLink>(item.Links)
+                    //};
+                    posts.Add(post);
                 }
-                return File(stream.ToArray(), "application/rss+xml; charset=utf-8");
+
+                return Ok(posts);
             }
-        }
-
-        public string GetBaseUrl()
-        {
-            var request = _httpContextAccessor.HttpContext.Request;
-            var host = request.Host.ToUriComponent();
-            var pathBase = request.PathBase.ToUriComponent();
-
-            return $"{request.Scheme}://{host}{pathBase}";
+            catch (Exception)
+            {
+            }
+            return NotFound();
         }
     }
 }

@@ -1,0 +1,28 @@
+﻿@page "/rss"
+@inherits RSSBase
+
+<div id="posts" class="widget">
+    <table class="table">
+        <thead>
+            <tr>
+                <th scope="col">Title</th>
+                <th scope="col">Summary</th>
+                <th scope="col">Publish Date</th>
+                <th scope="col">Link</th>
+                <th scope="col">Author</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach(var post in Posts) { 
+            <tr>
+                <td>@post.Title</td>
+                <td>@post.Summary</td>
+                <td>@post.PublishDate</td>
+                <td>@post.Uri</td>
+                <td>@post.Author</td>
+            </tr>
+            }
+        </tbody>
+    </table>
+</div>
+

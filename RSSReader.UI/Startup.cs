@@ -1,15 +1,19 @@
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.HttpsPolicy;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using RSSReader.UI.Data;
+using RSSReader.UI.Services;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.Http;
 using System.Threading.Tasks;
 
-namespace RSSReader
+namespace RSSReader.UI
 {
     public class Startup
     {
@@ -21,10 +25,22 @@ namespace RSSReader
         public IConfiguration Configuration { get; }
 
         // This method gets called by the runtime. Use this method to add services to the container.
+        // For more information on how to configure your application, visit https://go.microsoft.com/fwlink/?LinkID=398940
         public void ConfigureServices(IServiceCollection services)
         {
-            services.AddRazorPages();
+            var apiURI = new Uri("https://localhost:44382/");
+            void RegisterTypedClient<TClient, TImplementation>(Uri apiBaseUrl)
+          where TClient : class where TImplementation : class, TClient
+            {
+                services.AddHttpClient<TClient, TImplementation>(client =>
+                {
+                    client.BaseAddress = apiBaseUrl;
+                });
+            }
 
+            services.AddRazorPages();
+            services.AddServerSideBlazor().AddCircuitOptions(options => { options.DetailedErrors = true; });
+            RegisterTypedClient<IRssDataService, RssDataService >(apiURI);
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -46,11 +62,10 @@ namespace RSSReader
 
             app.UseRouting();
 
-            app.UseAuthorization();
-
             app.UseEndpoints(endpoints =>
             {
-                endpoints.MapRazorPages();
+                endpoints.MapBlazorHub();
+                endpoints.MapFallbackToPage("/_Host");
             });
         }
     }
